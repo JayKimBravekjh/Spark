@@ -5,7 +5,7 @@ if __name__ == "__main__":
         print("Usage: logistic_regression", file=sys.stderr)
         exit(-1)
 
-    sc = SparkContext(appName="PythonLogisticRegressionExample")
+    sc = SparkContext(appName="Jay")
     sqlContext = SQLContext(sc)
 
     # Load and parse the data file into a dataframe.
