@@ -8,7 +8,7 @@ from pyspark.streaming import StreamingContext
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
-        print("Usage: hdfs_wordcount.py <directory>", file=sys.stderr)
+        print(file=sys.stderr)
         exit(-1)
 
     sc = SparkContext(appName="Jay")
