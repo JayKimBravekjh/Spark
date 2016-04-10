@@ -1,0 +1,90 @@
+
+# running Spark locally. 
+library(devtools)
+install_github("amplab-extras/SparkR-pkg", subdir="pkg")
+
+library(magrittr)
+library(SparkR)
+
+sc <- sparkR.init(master="local")
+
+sc %>% 
+  parallelize(1:100000) %>%
+  count
+  
+nums = runif(100000) * 10
+
+sc %>% 
+  parallelize(nums) %>% 
+  map(function(x) round(x)) %>%
+  filterRDD(function(x) x %% 2) %>% 
+  map(function(x) list(x, 1)) %>%
+  reduceByKey(function(x,y) x + y, 1L) %>% 
+  collect
+  
+
+sc <- sparkR.init(master="local")
+
+sample_cw <- function(n, s){
+  set.seed(s)
+  ChickWeight[sample(nrow(ChickWeight), n), ]
+}
+
+data_rdd <- sc %>%
+  parallelize(1:200, 20) %>% 
+  map(function(s) sample_cw(250, s))
+  
+data_rdd %>% 
+  map(function(x) mean(x$weight)) %>% 
+  collect %>% 
+  as.numeric %>% 
+  hist(20, main="mean weight, bootstrap samples")
+  
+train_lm <- function(data_in){
+  lm(data=data_in, weight ~ Time)
+}
+
+coef_rdd <- data_rdd %>% 
+  map(train_lm) %>% 
+  map(function(x) x$coefficients) 
+
+get_coef <- function(k) { 
+  code_rdd %>%  
+    map(function(x) x[k]) %>% 
+    collect %>%
+    as.numeric
+}
+
+df <- data.frame(intercept = get_coef(1), time_coef = get_coef(2))
+df$intercept %>% hist(breaks = 30, main="beta coef for intercept")
+df$time_coef %>% hist(breaks = 30, main="beta coef for time")
+
+
+# ec2 cluster 
+./spark-ec2 \
+--key-pair=spark-df \
+--identity-file=/path/spark-df.pem \
+--region=eu-west-1 \
+-s 3 \
+--instance-type c3.2xlarge \
+launch my-spark-cluster
+
+
+cd /root
+git clone https://github.com/amplab-extras/SparkR-pkg.git
+cd SparkR-pkg
+SPARK_VERSION=1.2.1 ./install-dev.sh
+cp -a /root/SparkR-pkg/lib/SparkR /usr/share/R/library/
+/root/spark-ec2/copy-dir /root/SparkR-pkg
+/root/spark/sbin/slaves.sh cp -a /root/SparkR-pkg/lib/SparkR /usr/share/R/library/
+
+# launch spark on cluster. 
+MASTER=spark://:7077 ./sparkR
+
+# host name retrieved. 
+cat /root/spark-ec2/cluster-url
+
+# check cluster status using UI. 
+http://:8080
+
+
